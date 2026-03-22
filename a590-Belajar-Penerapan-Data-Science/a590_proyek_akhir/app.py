@@ -54,10 +54,23 @@ YES_NO_OPTIONS = {"Tidak": 0, "Ya": 1}
 
 model, scaler, label_encoders, le_target, feature_names = load_model_artifacts()
 
+# Load final dataset dengan categorical labels
+@st.cache_data
+def load_dataset():
+    try:
+        dataset_path = os.path.join(os.path.dirname(__file__), '..', 'Dataset', 'student_data_metabase_final.csv')
+        df = pd.read_csv(dataset_path, sep=';', encoding='utf-8')
+        return df
+    except Exception as e:
+        st.error(f"Tidak dapat memuat dataset: {str(e)}")
+        return None
+
+df_dataset = load_dataset()
+
 # Sidebar Configuration
 with st.sidebar:
     st.title("⚙️ Konfigurasi")
-    page = st.radio("Pilih Halaman:", ["🏠 Beranda", "📊 Prediksi", "📈 Analitik", "ℹ️ Tentang"])
+    page = st.radio("Pilih Halaman:", ["🏠 Beranda", "📊 Prediksi", "📈 Analitik", "🔍 Dataset & Eksplorasi", "ℹ️ Tentang"])
 
 # Home Page
 if page == "🏠 Beranda":
@@ -401,6 +414,206 @@ elif page == "📈 Analitik":
         - **Stabilitas keuangan** berdampak pada retensi
         - **Pilihan program** mempengaruhi penyelesaian
         """)
+
+# Dataset & Exploration Page
+elif page == "🔍 Dataset & Eksplorasi":
+    st.title("🔍 Dataset & Eksplorasi Data")
+    st.markdown("---")
+    
+    if df_dataset is not None:
+        # Dataset Overview
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Siswa", len(df_dataset))
+        with col2:
+            st.metric("Total Fitur", len(df_dataset.columns))
+        with col3:
+            graduates = len(df_dataset[df_dataset['Status'] == 'Graduate'])
+            st.metric("Lulus ✅", f"{graduates:,}")
+        with col4:
+            dropouts = len(df_dataset[df_dataset['Status'] == 'Dropout'])
+            st.metric("Dropout ⚠️", f"{dropouts:,}")
+        
+        st.markdown("---")
+        
+        # Tabs for different views
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Tabel Data", "📊 Statistik", "🎯 Distribusi Status", "👥 Demografi", "💰 Finansial"])
+        
+        with tab1:
+            st.subheader("Tabel Data Lengkap")
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                search_term = st.text_input("🔍 Cari (nama kolom):", help="Cari berdasarkan nama field")
+            with col2:
+                rows_to_show = st.slider("Jumlah baris:", min_value=5, max_value=100, value=20)
+            
+            # Filter columns based on search
+            if search_term:
+                filtered_cols = [col for col in df_dataset.columns if search_term.lower() in col.lower()]
+                if filtered_cols:
+                    st.dataframe(df_dataset[filtered_cols].head(rows_to_show), use_container_width=True)
+                else:
+                    st.warning(f"Tidak ada kolom yang sesuai dengan '{search_term}'")
+            else:
+                # Show important columns by default
+                important_cols = ['Status', 'Model_Prediction', 'Prediction_Confidence',
+                                 'Gender_Label', 'Scholarship_Label', 'Tuition_Label', 'Debtor_Label',
+                                 'Attendance_Label', 'Displaced_Label', 'International_Label',
+                                 'Special_Needs_Label', 'Age_at_enrollment']
+                available_cols = [col for col in important_cols if col in df_dataset.columns]
+                st.dataframe(df_dataset[available_cols].head(rows_to_show), use_container_width=True)
+            
+            st.info(f"💡 Menampilkan {min(rows_to_show, len(df_dataset))} dari {len(df_dataset):,} baris")
+        
+        with tab2:
+            st.subheader("Statistik Deskriptif")
+            
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                stat_type = st.radio("Pilih Tipe:", ["Numerik", "Kategorikal"])
+            
+            if stat_type == "Numerik":
+                numeric_cols = df_dataset.select_dtypes(include=[np.number]).columns.tolist()
+                if numeric_cols:
+                    st.dataframe(df_dataset[numeric_cols].describe(), use_container_width=True)
+                else:
+                    st.warning("Tidak ada kolom numerik")
+            else:
+                categorical_cols = [col for col in df_dataset.columns if '_Label' in col or col == 'Status']
+                if categorical_cols:
+                    st.subheader("Distribusi Kategorikal")
+                    for col in categorical_cols[:6]:  # Show first 6
+                        st.write(f"**{col}**")
+                        st.dataframe(df_dataset[col].value_counts(), use_container_width=True)
+        
+        with tab3:
+            st.subheader("Distribusi Status Siswa")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Status actual distribution
+                status_counts = df_dataset['Status'].value_counts()
+                status_data = pd.DataFrame({
+                    'Status': ['Graduate ✅', 'Dropout ⚠️', 'Enrolled 📚'],
+                    'Jumlah': [status_counts.get('Graduate', 0), status_counts.get('Dropout', 0), status_counts.get('Enrolled', 0)]
+                })
+                
+                st.markdown("**Status Aktual**")
+                st.bar_chart(status_data.set_index('Status')['Jumlah'])
+            
+            with col2:
+                # Prediction distribution
+                pred_counts = df_dataset['Model_Prediction'].value_counts()
+                pred_data = pd.DataFrame({
+                    'Model Prediction': ['Graduate ✅', 'Dropout ⚠️', 'Enrolled 📚'],
+                    'Jumlah': [pred_counts.get('Graduate', 0), pred_counts.get('Dropout', 0), pred_counts.get('Enrolled', 0)]
+                })
+                
+                st.markdown("**Prediksi Model**")
+                st.bar_chart(pred_data.set_index('Model Prediction')['Jumlah'])
+            
+            st.markdown("---")
+            # Prediction accuracy
+            accuracy = len(df_dataset[df_dataset['Prediction_Correct'] == 1]) / len(df_dataset) * 100
+            st.metric("Akurasi Prediksi Model", f"{accuracy:.2f}%")
+            
+            st.subheader("Tingkat Kepercayaan Prediksi")
+            conf_col = [col for col in df_dataset.columns if 'Prediction_Confidence' in col or 'confidence' in col.lower()]
+            if conf_col:
+                confidence_data = df_dataset[conf_col[0]]
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Min Confidence", f"{confidence_data.min():.2f}%")
+                with col2:
+                    st.metric("Rata-rata", f"{confidence_data.mean():.2f}%")
+                with col3:
+                    st.metric("Median", f"{confidence_data.median():.2f}%")
+                with col4:
+                    st.metric("Max Confidence", f"{confidence_data.max():.2f}%")
+                
+                st.histogram(confidence_data, title="Distribusi Tingkat Kepercayaan", bins=30)
+        
+        with tab4:
+            st.subheader("Analisis Demografi Siswa")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Gender distribution
+                if 'Gender_Label' in df_dataset.columns:
+                    st.markdown("**Distribusi Jenis Kelamin**")
+                    gender_counts = df_dataset['Gender_Label'].value_counts()
+                    st.bar_chart(gender_counts)
+            
+            with col2:
+                # Age distribution
+                if 'Age_at_enrollment' in df_dataset.columns:
+                    st.markdown("**Distribusi Usia saat Pendaftaran**")
+                    st.histogram(df_dataset['Age_at_enrollment'], title="Usia Siswa", bins=20)
+            
+            st.markdown("---")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # International status
+                if 'International_Label' in df_dataset.columns:
+                    st.markdown("**Status Internasional**")
+                    intl_counts = df_dataset['International_Label'].value_counts()
+                    st.pie(intl_counts.values, labels=intl_counts.index, use_container_width=True)
+            
+            with col2:
+                # Special needs
+                if 'Special_Needs_Label' in df_dataset.columns:
+                    st.markdown("**Kebutuhan Khusus**")
+                    needs_counts = df_dataset['Special_Needs_Label'].value_counts()
+                    st.pie(needs_counts.values, labels=needs_counts.index, use_container_width=True)
+        
+        with tab5:
+            st.subheader("Analisis Finansial Siswa")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Scholarship
+                if 'Scholarship_Label' in df_dataset.columns:
+                    st.markdown("**Penerima Beasiswa**")
+                    scholarship_counts = df_dataset['Scholarship_Label'].value_counts()
+                    st.bar_chart(scholarship_counts)
+            
+            with col2:
+                # Tuition payment
+                if 'Tuition_Label' in df_dataset.columns:
+                    st.markdown("**Status Pembayaran Kuliah**")
+                    tuition_counts = df_dataset['Tuition_Label'].value_counts()
+                    st.bar_chart(tuition_counts)
+            
+            with col3:
+                # Debtor status
+                if 'Debtor_Label' in df_dataset.columns:
+                    st.markdown("**Status Debtor**")
+                    debtor_counts = df_dataset['Debtor_Label'].value_counts()
+                    st.bar_chart(debtor_counts)
+            
+            st.markdown("---")
+            
+            # Financial summary
+            st.subheader("Ringkasan Finansial")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                scholarship_pct = (df_dataset['Scholarship_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
+                st.metric("Penerima Beasiswa", f"{scholarship_pct:.1f}%")
+            
+            with col2:
+                tuition_pct = (df_dataset['Tuition_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
+                st.metric("Pembayaran Tepat Waktu", f"{tuition_pct:.1f}%")
+            
+            with col3:
+                non_debtor_pct = (df_dataset['Debtor_Label'].str.contains('Non-Debtor', na=False).sum() / len(df_dataset) * 100)
+                st.metric("Non-Debtor", f"{non_debtor_pct:.1f}%")
 
 # About Page
 elif page == "ℹ️ Tentang":
