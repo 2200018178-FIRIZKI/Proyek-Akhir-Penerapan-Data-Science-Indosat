@@ -533,7 +533,14 @@ elif page == "🔍 Dataset & Eksplorasi":
                 with col4:
                     st.metric("Max Confidence", f"{confidence_data.max():.2f}%")
                 
-                st.histogram(confidence_data, title="Distribusi Tingkat Kepercayaan", bins=30)
+                st.markdown("**Distribusi Tingkat Kepercayaan**")
+                fig, ax = plt.subplots(figsize=(10, 5))
+                ax.hist(confidence_data, bins=30, color='#3498db', edgecolor='black', alpha=0.7)
+                ax.set_xlabel("Confidence Score (%)")
+                ax.set_ylabel("Jumlah Prediksi")
+                ax.set_title("Distribusi Tingkat Kepercayaan Model")
+                ax.grid(True, alpha=0.3)
+                st.pyplot(fig)
         
         with tab4:
             st.subheader("Analisis Demografi Siswa")
