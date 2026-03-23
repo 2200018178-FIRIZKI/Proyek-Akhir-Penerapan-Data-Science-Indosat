@@ -576,14 +576,20 @@ elif page == "🔍 Dataset & Eksplorasi":
                 if 'International_Label' in df_dataset.columns:
                     st.markdown("**Status Internasional**")
                     intl_counts = df_dataset['International_Label'].value_counts()
-                    st.pie(intl_counts.values, labels=intl_counts.index, use_container_width=True)
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    ax.pie(intl_counts.values, labels=intl_counts.index, autopct='%1.1f%%', startangle=90)
+                    ax.set_title("Persentase Status Internasional")
+                    st.pyplot(fig)
             
             with col2:
                 # Special needs
                 if 'Special_Needs_Label' in df_dataset.columns:
                     st.markdown("**Kebutuhan Khusus**")
                     needs_counts = df_dataset['Special_Needs_Label'].value_counts()
-                    st.pie(needs_counts.values, labels=needs_counts.index, use_container_width=True)
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    ax.pie(needs_counts.values, labels=needs_counts.index, autopct='%1.1f%%', startangle=90)
+                    ax.set_title("Persentase Kebutuhan Khusus")
+                    st.pyplot(fig)
         
         with tab5:
             st.subheader("Analisis Finansial Siswa")
