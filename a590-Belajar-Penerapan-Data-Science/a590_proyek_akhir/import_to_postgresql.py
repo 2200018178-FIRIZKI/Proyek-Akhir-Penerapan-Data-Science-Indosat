@@ -12,7 +12,7 @@ import os
 
 # Configuration
 DB_CONFIG = {
-    'host': 'host.docker.internal',
+    'host': 'localhost',
     'port': 5432,
     'database': 'student_data',
     'user': 'admin',
