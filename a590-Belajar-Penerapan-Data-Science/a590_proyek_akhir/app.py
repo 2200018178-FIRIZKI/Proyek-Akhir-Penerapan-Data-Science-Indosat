@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 import os
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 # Set page config
 st.set_page_config(
@@ -558,7 +559,13 @@ elif page == "🔍 Dataset & Eksplorasi":
                 # Age distribution
                 if 'Age_at_enrollment' in df_dataset.columns:
                     st.markdown("**Distribusi Usia saat Pendaftaran**")
-                    st.histogram(df_dataset['Age_at_enrollment'], title="Usia Siswa", bins=20)
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    ax.hist(df_dataset['Age_at_enrollment'], bins=20, color='#2ecc71', edgecolor='black', alpha=0.7)
+                    ax.set_xlabel("Usia (tahun)")
+                    ax.set_ylabel("Jumlah Siswa")
+                    ax.set_title("Distribusi Usia saat Pendaftaran")
+                    ax.grid(True, alpha=0.3)
+                    st.pyplot(fig)
             
             st.markdown("---")
             
