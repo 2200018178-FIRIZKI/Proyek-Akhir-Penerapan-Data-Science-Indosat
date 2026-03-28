@@ -37,8 +37,43 @@ def load_model_artifacts():
     scaler = joblib.load(os.path.join(model_dir, 'scaler.joblib'))
     label_encoders = joblib.load(os.path.join(model_dir, 'label_encoders.joblib'))
     le_target = joblib.load(os.path.join(model_dir, 'le_target.joblib'))
-    feature_names = joblib.load(os.path.join(model_dir, 'feature_names.joblib'))
-    return model, scaler, label_encoders, le_target, feature_names
+    
+    # Fitur yang sebenarnya digunakan model (dari dataset aktual)
+    # Sesuai dengan kolom di student_data_metabase_final.csv
+    model_input_features = [
+        'Model_Prediction',
+        'Prediction_Confidence', 
+        'Prediction_Correct',
+        'Gender',
+        'Gender_Label',
+        'Age_at_enrollment',
+        'Marital_status',
+        'International',
+        'International_Label',
+        'Displaced',
+        'Displaced_Label',
+        'Course',
+        'Admission_grade',
+        'Curricular_units_1st_sem_approved',
+        'Curricular_units_1st_sem_grade',
+        'Curricular_units_2nd_sem_approved',
+        'Curricular_units_2nd_sem_grade',
+        'Educational_special_needs',
+        'Educational_special_needs_Label',
+        'Scholarship_holder',
+        'Scholarship_holder_Label',
+        'Tuition_fees_up_to_date',
+        'Tuition_fees_up_to_date_Label',
+        'Debtor',
+        'Debtor_Label',
+        'Daytime_evening_attendance',
+        'Daytime_evening_attendance_Label',
+        'Probability_Dropout',
+        'Probability_Enrolled',
+        'Probability_Graduate'
+    ]
+    
+    return model, scaler, label_encoders, le_target, model_input_features
 
 # Mapping untuk dropdown options (user-friendly)
 GENDER_OPTIONS = {"Laki-laki": 1, "Perempuan": 2}
@@ -165,13 +200,15 @@ elif page == "Prediksi":
     st.title("Prediksi Status Siswa")
     st.markdown("---")
     
-    # Create input form
+    # Create input form - SESUAI DENGAN FITUR YANG TERSEDIA DI DATASET
     with st.form("prediction_form"):
+        st.info("💡 Isi informasi siswa berikut untuk mendapatkan prediksi status")
+        
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.subheader("👤 Informasi Pribadi")
-            age = st.number_input("Usia saat Pendaftaran (tahun)", min_value=15, max_value=80, value=20, help="Contoh: 20 tahun")
+            age = st.number_input("Usia saat Pendaftaran (tahun)", min_value=15, max_value=80, value=20)
             gender_label = st.selectbox("Jenis Kelamin", list(GENDER_OPTIONS.keys()))
             gender = GENDER_OPTIONS[gender_label]
             marital_label = st.selectbox("Status Pernikahan", list(MARITAL_STATUS_OPTIONS.keys()))
@@ -179,14 +216,15 @@ elif page == "Prediksi":
         
         with col2:
             st.subheader("📚 Informasi Akademik")
-            application_mode = st.number_input("Mode Aplikasi", min_value=1, max_value=60, value=1, help="Lihat tabel mode aplikasi yang tersedia")
+            course = st.number_input("Kode Program Studi", min_value=1, max_value=20000, value=9147)
             admission_grade = st.number_input("Nilai Penerimaan (0-200)", min_value=0.0, max_value=200.0, value=120.0)
-            previous_qual = st.number_input("Nilai Kualifikasi Sebelumnya (0-200)", min_value=0.0, max_value=200.0, value=122.0)
+            international_label = st.selectbox("Status Internasional", list(YES_NO_OPTIONS.keys()))
+            international = YES_NO_OPTIONS[international_label]
         
         with col3:
-            st.subheader("💰 Informasi Keuangan")
-            payment_label = st.selectbox("Status Pembayaran Kuliah", list(PAYMENT_STATUS_OPTIONS.keys()))
-            tuition_fees_updated = PAYMENT_STATUS_OPTIONS[payment_label]
+            st.subheader("💰 Informasi Keuangan & Status")
+            tuition_label = st.selectbox("Pembayaran Kuliah Terbaru", list(PAYMENT_STATUS_OPTIONS.keys()))
+            tuition_fees_updated = PAYMENT_STATUS_OPTIONS[tuition_label]
             scholarship_label = st.selectbox("Penerima Beasiswa", list(YES_NO_OPTIONS.keys()))
             scholarship = YES_NO_OPTIONS[scholarship_label]
             debtor_label = st.selectbox("Memiliki Utang", list(YES_NO_OPTIONS.keys()))
@@ -194,67 +232,35 @@ elif page == "Prediksi":
         
         st.markdown("---")
         st.subheader("📊 Performa Semester 1")
-        col_sem1_1, col_sem1_2, col_sem1_3, col_sem1_4 = st.columns(4)
+        col_sem1_1, col_sem1_2 = st.columns(2)
         
         with col_sem1_1:
-            sem1_credited = st.number_input("Sem 1 - Unit Kredit", min_value=0, max_value=30, value=0, help="Jumlah unit yang dikreditkan")
+            sem1_approved = st.number_input("Semester 1 - Unit Lulus", min_value=0, max_value=30, value=0)
         with col_sem1_2:
-            sem1_enrolled = st.number_input("Sem 1 - Unit Terdaftar", min_value=0, max_value=30, value=0, help="Jumlah unit terdaftar")
-        with col_sem1_3:
-            sem1_approved = st.number_input("Sem 1 - Unit Lulus", min_value=0, max_value=30, value=0, help="Jumlah unit yang lulus")
-        with col_sem1_4:
-            sem1_grade = st.number_input("Sem 1 - IPK/Nilai Rata-rata (0-4.0)", min_value=0.0, max_value=20.0, value=0.0)
+            sem1_grade = st.number_input("Semester 1 - Nilai Rata-rata (0-20)", min_value=0.0, max_value=20.0, value=0.0)
         
         st.markdown("---")
         st.subheader("📊 Performa Semester 2")
-        col_sem2_1, col_sem2_2, col_sem2_3, col_sem2_4 = st.columns(4)
+        col_sem2_1, col_sem2_2 = st.columns(2)
         
         with col_sem2_1:
-            sem2_credited = st.number_input("Sem 2 - Unit Kredit", min_value=0, max_value=30, value=0)
+            sem2_approved = st.number_input("Semester 2 - Unit Lulus", min_value=0, max_value=30, value=0)
         with col_sem2_2:
-            sem2_enrolled = st.number_input("Sem 2 - Unit Terdaftar", min_value=0, max_value=30, value=0)
-        with col_sem2_3:
-            sem2_approved = st.number_input("Sem 2 - Unit Lulus", min_value=0, max_value=30, value=0)
-        with col_sem2_4:
-            sem2_grade = st.number_input("Sem 2 - IPK/Nilai Rata-rata (0-4.0)", min_value=0.0, max_value=20.0, value=0.0)
+            sem2_grade = st.number_input("Semester 2 - Nilai Rata-rata (0-20)", min_value=0.0, max_value=20.0, value=0.0)
         
         st.markdown("---")
-        st.subheader("🌍 Informasi Tambahan")
+        st.subheader("⚙️ Informasi Tambahan")
         col_other_1, col_other_2, col_other_3 = st.columns(3)
         
         with col_other_1:
-            course = st.number_input("Kode Program Studi", min_value=1, max_value=17000, value=9147, help="Lihat kode program studi yang tersedia")
-        with col_other_2:
             displaced_label = st.selectbox("Status Terlantar", list(YES_NO_OPTIONS.keys()))
             displaced = YES_NO_OPTIONS[displaced_label]
+        with col_other_2:
+            special_needs_label = st.selectbox("Kebutuhan Khusus", list(YES_NO_OPTIONS.keys()))
+            special_needs = YES_NO_OPTIONS[special_needs_label]
         with col_other_3:
-            international_label = st.selectbox("Siswa Internasional", list(YES_NO_OPTIONS.keys()))
-            international = YES_NO_OPTIONS[international_label]
-        
-        st.markdown("---")
-        st.subheader("📈 Faktor Ekonomi (opsional)")
-        col_econ_1, col_econ_2, col_econ_3 = st.columns(3)
-        with col_econ_1:
-            unemployment_rate = st.number_input("Tingkat Pengangguran (%)", min_value=0.0, max_value=30.0, value=12.7)
-        with col_econ_2:
-            inflation_rate = st.number_input("Tingkat Inflasi (%)", min_value=-10.0, max_value=10.0, value=3.7)
-        with col_econ_3:
-            gdp = st.number_input("PDB Pertumbuhan (%)", min_value=-10.0, max_value=10.0, value=-1.7)
-        
-        # Default values for other features
-        application_order = 1
-        daytime_evening = 1
-        previous_qualification = 1
-        nacionality = 1
-        mothers_qualification = 19
-        fathers_qualification = 37
-        mothers_occupation = 5
-        fathers_occupation = 9
-        educational_special_needs = 0
-        sem1_evaluations = sem1_enrolled if sem1_enrolled > 0 else 0
-        sem1_without_eval = 0
-        sem2_evaluations = sem2_enrolled if sem2_enrolled > 0 else 0
-        sem2_without_eval = 0
+            daytime_label = st.selectbox("Tipe Kehadiran", ["Siang (Daytime)", "Malam (Evening)"])
+            daytime_evening = 1 if daytime_label == "Siang (Daytime)" else 0
         
         st.markdown("---")
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
@@ -264,51 +270,88 @@ elif page == "Prediksi":
             st.caption("💡 Tip: Isi semua field untuk mendapatkan prediksi yang akurat")
     
     if submit_button:
-        # Create DataFrame with all features in correct order
-        input_data = pd.DataFrame({
-            'Marital_status': [marital_status],
-            'Application_mode': [application_mode],
-            'Application_order': [application_order],
-            'Course': [course],
-            'Daytime_evening_attendance': [daytime_evening],
-            'Previous_qualification': [previous_qualification],
-            'Previous_qualification_grade': [previous_qual],
-            'Nacionality': [nacionality],
-            'Mothers_qualification': [mothers_qualification],
-            'Fathers_qualification': [fathers_qualification],
-            'Mothers_occupation': [mothers_occupation],
-            'Fathers_occupation': [fathers_occupation],
-            'Admission_grade': [admission_grade],
-            'Displaced': [displaced],
-            'Educational_special_needs': [educational_special_needs],
-            'Debtor': [debtor],
-            'Tuition_fees_up_to_date': [tuition_fees_updated],
-            'Gender': [gender],
-            'Scholarship_holder': [scholarship],
-            'Age_at_enrollment': [age],
-            'International': [international],
-            'Curricular_units_1st_sem_credited': [sem1_credited],
-            'Curricular_units_1st_sem_enrolled': [sem1_enrolled],
-            'Curricular_units_1st_sem_evaluations': [sem1_evaluations],
-            'Curricular_units_1st_sem_approved': [sem1_approved],
-            'Curricular_units_1st_sem_grade': [sem1_grade],
-            'Curricular_units_1st_sem_without_evaluations': [sem1_without_eval],
-            'Curricular_units_2nd_sem_credited': [sem2_credited],
-            'Curricular_units_2nd_sem_enrolled': [sem2_enrolled],
-            'Curricular_units_2nd_sem_evaluations': [sem2_evaluations],
-            'Curricular_units_2nd_sem_approved': [sem2_approved],
-            'Curricular_units_2nd_sem_grade': [sem2_grade],
-            'Curricular_units_2nd_sem_without_evaluations': [sem2_without_eval],
-            'Unemployment_rate': [unemployment_rate],
-            'Inflation_rate': [inflation_rate],
-            'GDP': [gdp]
-        })
+        # Create DataFrame with all features in correct order matching feature_names
+        try:
+            # Buat encoded labels dari nilai raw
+            gender_label_map = {1: "Laki-laki", 2: "Perempuan"}
+            gender_label_str = gender_label_map.get(gender, "Unknown")
+            
+            international_label = "Internasional" if international == 1 else "Lokal"
+            displaced_label = "Ya" if displaced == 1 else "Tidak"
+            special_needs_label = "Ya" if special_needs == 1 else "Tidak"
+            scholarship_label = "Ya" if scholarship == 1 else "Tidak"
+            tuition_label = "Dibayar" if tuition_fees_updated == 1 else "Tunggakan"
+            debtor_label = "Ya" if debtor == 1 else "Tidak"
+            attendance_label = "Siang" if daytime_evening == 1 else "Malam"
+            
+            # Default values untuk kolom prediksi
+            model_pred_default = 0
+            pred_conf_default = 0.0
+            pred_correct_default = 0
+            prob_dropout = 0.0
+            prob_enrolled = 0.0
+            prob_graduate = 0.0
+            
+            # Buat input_data dengan semua 30 fitur
+            input_data = pd.DataFrame({
+                'Model_Prediction': [model_pred_default],
+                'Prediction_Confidence': [pred_conf_default],
+                'Prediction_Correct': [pred_correct_default],
+                'Gender': [gender],
+                'Gender_Label': [gender_label_str],
+                'Age_at_enrollment': [age],
+                'Marital_status': [marital_status],
+                'International': [international],
+                'International_Label': [international_label],
+                'Displaced': [displaced],
+                'Displaced_Label': [displaced_label],
+                'Course': [course],
+                'Admission_grade': [admission_grade],
+                'Curricular_units_1st_sem_approved': [sem1_approved],
+                'Curricular_units_1st_sem_grade': [sem1_grade],
+                'Curricular_units_2nd_sem_approved': [sem2_approved],
+                'Curricular_units_2nd_sem_grade': [sem2_grade],
+                'Educational_special_needs': [special_needs],
+                'Educational_special_needs_Label': [special_needs_label],
+                'Scholarship_holder': [scholarship],
+                'Scholarship_holder_Label': [scholarship_label],
+                'Tuition_fees_up_to_date': [tuition_fees_updated],
+                'Tuition_fees_up_to_date_Label': [tuition_label],
+                'Debtor': [debtor],
+                'Debtor_Label': [debtor_label],
+                'Daytime_evening_attendance': [daytime_evening],
+                'Daytime_evening_attendance_Label': [attendance_label],
+                'Probability_Dropout': [prob_dropout],
+                'Probability_Enrolled': [prob_enrolled],
+                'Probability_Graduate': [prob_graduate]
+            })
+            
+            # Reorder columns to match feature_names dari model
+            input_data = input_data[feature_names]
+        
+        except Exception as e:
+            st.error(f"❌ Kesalahan dalam persiapan data: {str(e)}")
+            st.info(f"📋 Debug Info:")
+            st.write(f"Features yang diharapkan: {len(feature_names)} fitur")
+            if 'input_data' in locals():
+                st.write(f"Features yang dibuat: {list(input_data.columns)}")
+            st.write(f"Error detail: {str(e)}")
+            st.stop()
         
         # Make prediction
         try:
+            # Ensure input_data has the correct features for the scaler
             X_pred_scaled = scaler.transform(input_data)
+            
+            # Ensure X_pred_scaled is 2D
+            if X_pred_scaled.ndim == 1:
+                X_pred_scaled = X_pred_scaled.reshape(1, -1)
+            
             prediction = model.predict(X_pred_scaled)[0]
             probabilities = model.predict_proba(X_pred_scaled)[0]
+            
+            # Convert prediction to integer to use as index
+            prediction = int(prediction)
             
             # Display results
             st.markdown("---")
@@ -336,7 +379,8 @@ elif page == "Prediksi":
                 st.metric("Tingkat Kepercayaan", f"{max(probabilities)*100:.1f}%", delta=None)
             
             with col3:
-                top_prob_class = le_target.classes_[np.argmax(probabilities)]
+                top_prob_idx = int(np.argmax(probabilities))
+                top_prob_class = le_target.classes_[top_prob_idx]
                 if top_prob_class == 'Graduate':
                     st.metric("Kemungkinan", "TINGGI ✅")
                 elif top_prob_class == 'Enrolled':
