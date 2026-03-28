@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # Set page config
 st.set_page_config(
     page_title="Prediksi Status Siswa",
-    page_icon="🎓",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -59,9 +59,21 @@ model, scaler, label_encoders, le_target, feature_names = load_model_artifacts()
 @st.cache_data
 def load_dataset():
     try:
-        dataset_path = os.path.join(os.path.dirname(__file__), '..', 'Dataset', 'student_data_metabase_final.csv')
-        df = pd.read_csv(dataset_path, sep=';', encoding='utf-8')
-        return df
+        # Try multiple possible locations
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), 'student_data_metabase_final.csv'),
+            os.path.join(os.path.dirname(__file__), '..', 'Dataset', 'student_data_metabase_final.csv'),
+            './student_data_metabase_final.csv'
+        ]
+        
+        for dataset_path in possible_paths:
+            if os.path.exists(dataset_path):
+                df = pd.read_csv(dataset_path, sep=';', encoding='utf-8')
+                return df
+        
+        # If no file found
+        st.error(f"Dataset file not found in any of these locations: {possible_paths}")
+        return None
     except Exception as e:
         st.error(f"Tidak dapat memuat dataset: {str(e)}")
         return None
@@ -70,12 +82,12 @@ df_dataset = load_dataset()
 
 # Sidebar Configuration
 with st.sidebar:
-    st.title("⚙️ Konfigurasi")
-    page = st.radio("Pilih Halaman:", ["🏠 Beranda", "📊 Prediksi", "📈 Analitik", "🔍 Dataset & Eksplorasi", "ℹ️ Tentang"])
+    st.title("Konfigurasi")
+    page = st.radio("Pilih Halaman:", ["Beranda", "Prediksi", "Analitik", "Dataset & Eksplorasi", "Tentang"])
 
 # Home Page
-if page == "🏠 Beranda":
-    st.title("🎓 Sistem Prediksi Status Siswa")
+if page == "Beranda":
+    st.title("Sistem Prediksi Status Siswa")
     st.markdown("---")
     
     col1, col2 = st.columns(2)
@@ -85,9 +97,9 @@ if page == "🏠 Beranda":
         ### Tentang Sistem Ini
         
         Sistem machine learning ini membantu **Jaya Jaya Institut** memprediksi hasil siswa:
-        - 🎓 **Lulus**: Menyelesaikan studi dengan sukses
-        - 📚 **Aktif Studi**: Sedang melanjutkan studi
-        - ⛔ **Dropout**: Meninggalkan program
+        - Lulus: Menyelesaikan studi dengan sukses
+        - Aktif Studi: Sedang melanjutkan studi
+        - Dropout: Meninggalkan program
         
         ### Fitur Utama
         - Prediksi status siswa secara real-time
@@ -120,11 +132,11 @@ if page == "🏠 Beranda":
         """)
     
     st.markdown("---")
-    st.info("👉 Gunakan sidebar untuk menavigasi ke berbagai bagian")
+    st.info("Gunakan sidebar untuk menavigasi ke berbagai bagian")
 
 # Prediction Page
-elif page == "📊 Prediksi":
-    st.title("📊 Prediksi Status Siswa")
+elif page == "Prediksi":
+    st.title("Prediksi Status Siswa")
     st.markdown("---")
     
     # Create input form
@@ -365,8 +377,8 @@ elif page == "📊 Prediksi":
             st.error(f"Kesalahan dalam prediksi: {str(e)}")
 
 # Analytics Page
-elif page == "📈 Analitik":
-    st.title("📈 Analitik & Wawasan")
+elif page == "Analitik":
+    st.title("Analitik & Wawasan")
     st.markdown("---")
     
     col1, col2, col3 = st.columns(3)
@@ -417,8 +429,8 @@ elif page == "📈 Analitik":
         """)
 
 # Dataset & Exploration Page
-elif page == "🔍 Dataset & Eksplorasi":
-    st.title("🔍 Dataset & Eksplorasi Data")
+elif page == "Dataset & Eksplorasi":
+    st.title("Dataset & Eksplorasi Data")
     st.markdown("---")
     
     if df_dataset is not None:
@@ -430,15 +442,15 @@ elif page == "🔍 Dataset & Eksplorasi":
             st.metric("Total Fitur", len(df_dataset.columns))
         with col3:
             graduates = len(df_dataset[df_dataset['Status'] == 'Graduate'])
-            st.metric("Lulus ✅", f"{graduates:,}")
+            st.metric("Lulus", f"{graduates:,}")
         with col4:
             dropouts = len(df_dataset[df_dataset['Status'] == 'Dropout'])
-            st.metric("Dropout ⚠️", f"{dropouts:,}")
+            st.metric("Dropout", f"{dropouts:,}")
         
         st.markdown("---")
         
         # Tabs for different views
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Tabel Data", "📊 Statistik", "🎯 Distribusi Status", "👥 Demografi", "💰 Finansial"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tabel Data", "Statistik", "Distribusi Status", "Demografi", "Finansial"])
         
         with tab1:
             st.subheader("Tabel Data Lengkap")
@@ -497,7 +509,7 @@ elif page == "🔍 Dataset & Eksplorasi":
                 # Status actual distribution
                 status_counts = df_dataset['Status'].value_counts()
                 status_data = pd.DataFrame({
-                    'Status': ['Graduate ✅', 'Dropout ⚠️', 'Enrolled 📚'],
+                    'Status': ['Graduate', 'Dropout', 'Enrolled'],
                     'Jumlah': [status_counts.get('Graduate', 0), status_counts.get('Dropout', 0), status_counts.get('Enrolled', 0)]
                 })
                 
@@ -508,7 +520,7 @@ elif page == "🔍 Dataset & Eksplorasi":
                 # Prediction distribution
                 pred_counts = df_dataset['Model_Prediction'].value_counts()
                 pred_data = pd.DataFrame({
-                    'Model Prediction': ['Graduate ✅', 'Dropout ⚠️', 'Enrolled 📚'],
+                    'Model Prediction': ['Graduate', 'Dropout', 'Enrolled'],
                     'Jumlah': [pred_counts.get('Graduate', 0), pred_counts.get('Dropout', 0), pred_counts.get('Enrolled', 0)]
                 })
                 
@@ -636,8 +648,8 @@ elif page == "🔍 Dataset & Eksplorasi":
                 st.metric("Non-Debtor", f"{non_debtor_pct:.1f}%")
 
 # About Page
-elif page == "ℹ️ Tentang":
-    st.title("ℹ️ Tentang Proyek Ini")
+elif page == "Tentang":
+    st.title("Tentang Proyek Ini")
     st.markdown("---")
     
     st.markdown("""
