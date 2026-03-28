@@ -61,21 +61,47 @@ def load_dataset():
     try:
         # Try multiple possible locations
         possible_paths = [
+            # Local development paths
             os.path.join(os.path.dirname(__file__), 'student_data_metabase_final.csv'),
             os.path.join(os.path.dirname(__file__), '..', 'Dataset', 'student_data_metabase_final.csv'),
-            './student_data_metabase_final.csv'
+            './student_data_metabase_final.csv',
+            '../student_data_metabase_final.csv',
+            
+            # Streamlit Cloud paths
+            os.path.join(os.path.dirname(__file__), '..', '..', 'a590_proyek_akhir', 'student_data_metabase_final.csv'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'a590-Belajar-Penerapan-Data-Science', 'a590_proyek_akhir', 'student_data_metabase_final.csv'),
+            
+            # Try current working directory
+            'student_data_metabase_final.csv',
         ]
         
         for dataset_path in possible_paths:
-            if os.path.exists(dataset_path):
-                df = pd.read_csv(dataset_path, sep=';', encoding='utf-8')
+            try:
+                if os.path.exists(dataset_path):
+                    df = pd.read_csv(dataset_path, sep=';', encoding='utf-8')
+                    return df
+            except:
+                continue
+        
+        # If no file found via paths, try to search
+        st.warning("⚠️ Dataset tidak ditemukan di path yang diharapkan. Menggunakan dataset alternatif...")
+        
+        # Try dataset_with_predictions.csv as fallback
+        fallback_paths = [
+            os.path.join(os.path.dirname(__file__), 'dataset_with_predictions.csv'),
+            './dataset_with_predictions.csv',
+        ]
+        
+        for fallback_path in fallback_paths:
+            if os.path.exists(fallback_path):
+                df = pd.read_csv(fallback_path, sep=';', encoding='utf-8')
+                st.info("✅ Menggunakan dataset alternatif: dataset_with_predictions.csv")
                 return df
         
-        # If no file found
-        st.error(f"Dataset file not found in any of these locations: {possible_paths}")
+        st.error("❌ Dataset file tidak ditemukan di lokasi manapun.")
         return None
     except Exception as e:
-        st.error(f"Tidak dapat memuat dataset: {str(e)}")
+        st.error(f"❌ Tidak dapat memuat dataset: {str(e)}")
         return None
 
 df_dataset = load_dataset()
