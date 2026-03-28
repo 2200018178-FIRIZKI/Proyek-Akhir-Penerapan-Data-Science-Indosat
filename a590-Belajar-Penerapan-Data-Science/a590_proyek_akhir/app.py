@@ -39,7 +39,7 @@ def load_model_artifacts():
     le_target = joblib.load(os.path.join(model_dir, 'le_target.joblib'))
     
     # Fitur yang sebenarnya digunakan model (dari dataset aktual)
-    # Sesuai dengan kolom di student_data_metabase_final.csv
+    # IMPORTANT: HARUS MATCH dengan scaler.feature_names_in_
     model_input_features = [
         'Model_Prediction',
         'Prediction_Confidence', 
@@ -59,15 +59,15 @@ def load_model_artifacts():
         'Curricular_units_2nd_sem_approved',
         'Curricular_units_2nd_sem_grade',
         'Educational_special_needs',
-        'Educational_special_needs_Label',
+        'Special_Needs_Label',
         'Scholarship_holder',
-        'Scholarship_holder_Label',
+        'Scholarship_Label',  # ← Model expect this (from scaler)
         'Tuition_fees_up_to_date',
-        'Tuition_fees_up_to_date_Label',
+        'Tuition_Label',  # ← Model expect this (from scaler)
         'Debtor',
         'Debtor_Label',
         'Daytime_evening_attendance',
-        'Daytime_evening_attendance_Label',
+        'Attendance_Label',
         'Probability_Dropout',
         'Probability_Enrolled',
         'Probability_Graduate'
@@ -272,17 +272,20 @@ elif page == "Prediksi":
     if submit_button:
         # Create DataFrame with all features in correct order matching feature_names
         try:
-            # Buat encoded labels dari nilai raw
-            gender_label_map = {1: "Laki-laki", 2: "Perempuan"}
-            gender_label_str = gender_label_map.get(gender, "Unknown")
+            # Buat encoded labels dari nilai raw dengan format yang SESUAI label_encoders
+            # Format harus EXACT seperti yang ada di dataset training
+            if gender == 1:
+                gender_label_str = "👨 Laki-laki (Male)"
+            else:
+                gender_label_str = "👩 Perempuan (Female)"
             
-            international_label = "Internasional" if international == 1 else "Lokal"
-            displaced_label = "Ya" if displaced == 1 else "Tidak"
-            special_needs_label = "Ya" if special_needs == 1 else "Tidak"
-            scholarship_label = "Ya" if scholarship == 1 else "Tidak"
-            tuition_label = "Dibayar" if tuition_fees_updated == 1 else "Tunggakan"
-            debtor_label = "Ya" if debtor == 1 else "Tidak"
-            attendance_label = "Siang" if daytime_evening == 1 else "Malam"
+            international_label = "🌍 Internasional" if international == 1 else "🇵🇹 Domestik"
+            displaced_label = "📍 Pindah" if displaced == 1 else "🏠 Tidak Pindah"
+            special_needs_label = "⚠️ Ya - Kebutuhan Khusus" if special_needs == 1 else "✓ Tidak"
+            scholarship_label = "✅ Dengan Beasiswa" if scholarship == 1 else "❌ Tanpa Beasiswa"
+            tuition_label = "✅ Bayar Tepat Waktu" if tuition_fees_updated == 1 else "⚠️ Belum/Menunggak"
+            debtor_label = "⚠️ Debtor" if debtor == 1 else "✅ Non-Debtor"
+            attendance_label = "☀️ Daytime" if daytime_evening == 1 else "🌙 Evening"
             
             # Default values untuk kolom prediksi
             model_pred_default = 0
@@ -312,15 +315,15 @@ elif page == "Prediksi":
                 'Curricular_units_2nd_sem_approved': [sem2_approved],
                 'Curricular_units_2nd_sem_grade': [sem2_grade],
                 'Educational_special_needs': [special_needs],
-                'Educational_special_needs_Label': [special_needs_label],
+                'Special_Needs_Label': [special_needs_label],  # ← FIXED: was Educational_special_needs_Label
                 'Scholarship_holder': [scholarship],
-                'Scholarship_holder_Label': [scholarship_label],
+                'Scholarship_Label': [scholarship_label],  # ← FIXED: was Scholarship_holder_Label
                 'Tuition_fees_up_to_date': [tuition_fees_updated],
-                'Tuition_fees_up_to_date_Label': [tuition_label],
+                'Tuition_Label': [tuition_label],  # ← FIXED: was Tuition_fees_up_to_date_Label
                 'Debtor': [debtor],
                 'Debtor_Label': [debtor_label],
                 'Daytime_evening_attendance': [daytime_evening],
-                'Daytime_evening_attendance_Label': [attendance_label],
+                'Attendance_Label': [attendance_label],  # ← FIXED: was Daytime_evening_attendance_Label
                 'Probability_Dropout': [prob_dropout],
                 'Probability_Enrolled': [prob_enrolled],
                 'Probability_Graduate': [prob_graduate]
@@ -340,8 +343,53 @@ elif page == "Prediksi":
         
         # Make prediction
         try:
-            # Ensure input_data has the correct features for the scaler
-            X_pred_scaled = scaler.transform(input_data)
+            # Encode string labels to numeric menggunakan label_encoders
+            # Ini diperlukan karena scaler hanya bisa scale numeric values
+            
+            # Model_Prediction: encode dengan le untuk Target jika tersedia
+            if 'Model_Prediction' in label_encoders:
+                model_pred_encoded = label_encoders['Model_Prediction'].transform(['Dropout'])[0]
+            else:
+                model_pred_encoded = 0  # Default fallback
+            
+            # Encode semua label columns menggunakan label_encoders
+            label_encoding_mapping =  {
+                'Gender_Label': gender_label_str,
+                'International_Label': international_label,
+                'Displaced_Label': displaced_label,
+                'Special_Needs_Label': special_needs_label,
+                'Scholarship_Label': scholarship_label,
+                'Tuition_Label': tuition_label,
+                'Debtor_Label': debtor_label,
+                'Attendance_Label': attendance_label
+            }
+            
+            # Transform string labels to numeric
+            encoded_labels = {}
+            for col, value in label_encoding_mapping.items():
+                if col in label_encoders:
+                    try:
+                        encoded_labels[col] = label_encoders[col].transform([value])[0]
+                    except:
+                        # If value not found, use 0 as fallback
+                        encoded_labels[col] = 0
+                else:
+                    encoded_labels[col] = 0
+            
+            # Replace string labels dengan encoded values
+            input_data_encoded = input_data.copy()
+            input_data_encoded['Model_Prediction'] = model_pred_encoded
+            input_data_encoded['Gender_Label'] = encoded_labels['Gender_Label']
+            input_data_encoded['International_Label'] = encoded_labels['International_Label']
+            input_data_encoded['Displaced_Label'] = encoded_labels['Displaced_Label']
+            input_data_encoded['Special_Needs_Label'] = encoded_labels['Special_Needs_Label']
+            input_data_encoded['Scholarship_Label'] = encoded_labels['Scholarship_Label']
+            input_data_encoded['Tuition_Label'] = encoded_labels['Tuition_Label']
+            input_data_encoded['Debtor_Label'] = encoded_labels['Debtor_Label']
+            input_data_encoded['Attendance_Label'] = encoded_labels['Attendance_Label']
+            
+            # Scale data
+            X_pred_scaled = scaler.transform(input_data_encoded)
             
             # Ensure X_pred_scaled is 2D
             if X_pred_scaled.ndim == 1:
@@ -706,11 +754,11 @@ elif page == "Dataset & Eksplorasi":
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                scholarship_pct = (df_dataset['Scholarship_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
+                scholarship_pct = (df_dataset['Scholarship_holder_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
                 st.metric("Penerima Beasiswa", f"{scholarship_pct:.1f}%")
             
             with col2:
-                tuition_pct = (df_dataset['Tuition_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
+                tuition_pct = (df_dataset['Tuition_fees_up_to_date_Label'].str.contains('✅', na=False).sum() / len(df_dataset) * 100)
                 st.metric("Pembayaran Tepat Waktu", f"{tuition_pct:.1f}%")
             
             with col3:
